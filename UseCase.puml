@@ -1,0 +1,39 @@
+@startuml
+"Пользователь" as user
+"Робот" as robot
+"Сервер" as server
+usecase "Вызвать робота" as u1
+usecase "Поставить стакан" as u2
+
+usecase "Получить команду" as r1
+usecase "Ехать к дозатору" as r2
+usecase "Ехать к пользователю" as r3
+usecase "Получить груз" as r4
+
+:user: --> u1
+:user: --> u2
+:robot: --> r1
+:robot: --> r2
+:robot: --> r3
+:robot: -right--> r4
+top to bottom direction
+usecase "получить сигнал" as s1
+usecase "Получить изображение" as s2
+usecase "Обработать изображение" as s3
+usecase "Определить положение робота" as s4
+usecase "Определить положение человека и дозатора" as s5
+usecase "Построить маршрут" as s6
+usecase "Передать команду роботу" as s7
+usecase "Получить сигнал от робота" as s8
+:server: -left--> s1 
+:server: -left--> s2
+:server: --> s3
+:server: --> s4
+:server: --> s5
+:server: --> s6
+:server: -right--> s7
+:server: -right--> s8
+u2 -[hidden]- server
+r2 -[hidden]- server
+
+@enduml
