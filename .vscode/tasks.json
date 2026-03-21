@@ -1,0 +1,26 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "g++",
+            "args": [
+                "${file}",
+                "-o", "${fileDirname}/${fileBasenameNoExtension}.exe",
+                "-I", "F:/vscode_proj/The-coffee-courier-robot/opencv/OpenCV-MinGW-Build-OpenCV-4.5.5-x64/OpenCV-MinGW-Build-OpenCV-4.5.5-x64/include",
+                "-L", "F:/vscode_proj/The-coffee-courier-robot/opencv/OpenCV-MinGW-Build-OpenCV-4.5.5-x64/OpenCV-MinGW-Build-OpenCV-4.5.5-x64/x64/mingw/lib",
+                "-lopencv_core455", "-lopencv_imgproc455", "-lopencv_highgui455",
+                "-lopencv_imgcodecs455", "-lopencv_videoio455", "-lopencv_objdetect455"
+            ],
+            "group": {"kind": "build", "isDefault": true}
+        },
+        {
+            "label": "build and run",
+            "type": "shell",
+            "command": "${fileDirname}/${fileBasenameNoExtension}.exe",
+            "dependsOn": "build",
+            "group": {"kind": "test", "isDefault": true}
+        }
+    ]
+}
