@@ -1,6 +1,17 @@
 #include <iostream>
 #include <cmath>
+#include "httplib.h"
 #include <thread>
+
+using json = nlohmann::json;
+
+constexpr const char* SERVER_HOST = "127.0.0.1"; // IP ноутбука
+constexpr int SERVER_PORT = 8080;
+constexpr const char* POLL_PATH = "/poll";
+constexpr int CONNECT_TIMEOUT_SEC = 1;
+constexpr int READ_TIMEOUT_SEC   = 2;
+constexpr int POLL_INTERVAL_MS   = 500;
+
 
 void thr(int time_ms){
 
@@ -38,41 +49,30 @@ public:
 };
 
 int main(){
+    httplib::Client client("localhost", 8080);
+    client.set_connection_timeout(CONNECT_TIMEOUT_SEC, 0);
+    client.set_read_timeout(READ_TIMEOUT_SEC, 0);
+
     FooEngine robot;
-    int chose = 0;
-    int time = 0;
-    while(1){
-        std::cout << "1-move\n2-rotate left\n3-rotate right\n4-stop\n";
-        std::cin >> chose;
-        switch (chose){
-        case 1:
-            std::cout << "write time move\n";
-            std::cin >> time;
-            robot.forward(time);
-            chose = 0;
-            break;
-        case 2:
-            std::cout << "write time rotate\n";
-            std::cin >> time;
-            robot.left(time);
-            chose = 0;
-            break;
-        case 3:
-            std::cout << "write time rotate\n";
-            std::cin >> time;
-            robot.left(time);
-            chose = 0;
-            break;
-        case 4:
-            robot.stop();
-            chose = 0;
-            break;
-        case 5:
-            return 0;
-        default:
-            std::cout << "error\n";
-            break;
+    
+    while (true) {
+        auto res = client.Get(POLL_PATH);
+        if (res && res->status == 200) {
+            auto command = json::parse(res->body);
+            std::string action = command["action"];
+            int time = command["time"];
+
+            if (action == "forward") {
+                robot.forward(time);
+            } else if (action == "left") {
+                robot.left(time);
+            } else if (action == "right") {
+                robot.right(time);
+            } else if (action == "stop") {
+                robot.stop();
+            }
         }
-        time = 0;
+        std::this_thread::sleep_for(std::chrono::milliseconds(POLL_INTERVAL_MS));
     }
+
 }
