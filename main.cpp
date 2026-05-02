@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cmath>
 #include "httplib.h"
+#include <nlohmann/json.hpp>
 #include <thread>
 
 using json = nlohmann::json;
@@ -10,7 +11,7 @@ constexpr int SERVER_PORT = 8080;
 constexpr const char* POLL_PATH = "/poll";
 constexpr int CONNECT_TIMEOUT_SEC = 1;
 constexpr int READ_TIMEOUT_SEC   = 2;
-constexpr int POLL_INTERVAL_MS   = 500;
+constexpr int POLL_INTERVAL_MS   = 200;
 
 
 void thr(int time_ms){
@@ -33,12 +34,12 @@ public:
     }
     
     void left(int time_ms){
-        std::cout << "robot turns to the right\n\n";
+        std::cout << "robot turns to the left\n\n";
         thr(time_ms);
     }
     
     void right(int time_ms){
-        std::cout << "robot turns to the left\n\n";
+        std::cout << "robot turns to the right\n\n";
         thr(time_ms);
     }
 
@@ -61,7 +62,7 @@ int main(){
             auto command = json::parse(res->body);
             std::string action = command["action"];
             int time = command["time"];
-
+            std::cout << "action: " << action << ", time: " << time << "\n";
             if (action == "forward") {
                 robot.forward(time);
             } else if (action == "left") {
