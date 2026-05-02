@@ -4,9 +4,10 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "F:/vscode_proj/The-coffee-courier-robot/opencv/OpenCV-MinGW-Build-OpenCV-4.5.5-x64/include"
+                "${workspaceFolder}/opencv/include"
             ],
             "compilerPath": "C:/TDM-GCC-64/bin/g++.exe",
+
             "cppStandard": "c++17"
         }
     ],

@@ -1,0 +1,14 @@
+# Target labels
+ json-populate
+# Source files and their labels
+C:/vscode/robot_Nasil/test/build/_deps/json-subbuild/CMakeFiles/json-populate
+C:/vscode/robot_Nasil/test/build/_deps/json-subbuild/CMakeFiles/json-populate.rule
+C:/vscode/robot_Nasil/test/build/_deps/json-subbuild/CMakeFiles/json-populate-complete.rule
+C:/vscode/robot_Nasil/test/build/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-build.rule
+C:/vscode/robot_Nasil/test/build/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-configure.rule
+C:/vscode/robot_Nasil/test/build/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-download.rule
+C:/vscode/robot_Nasil/test/build/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-install.rule
+C:/vscode/robot_Nasil/test/build/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-mkdir.rule
+C:/vscode/robot_Nasil/test/build/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-patch.rule
+C:/vscode/robot_Nasil/test/build/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-test.rule
+C:/vscode/robot_Nasil/test/build/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-update.rule
