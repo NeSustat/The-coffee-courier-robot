@@ -1,3 +1,4 @@
+#pragma once
 #include <opencv2/opencv.hpp>
 #include <vector>
 #include <iostream>
@@ -177,6 +178,18 @@ double getAngle() {
     return angle;
 }
 
+double getWay(){
+        // центр робота
+    double centerX = (robot.ax + robot.bx) / 2.0;
+    double centerY = (robot.ay + robot.by) / 2.0;
+
+    // направление к кофе
+    double toCoffeeX = coffee.ax - centerX;
+    double toCoffeeY = coffee.ay - centerY;
+
+    return sqrt(toCoffeeX * toCoffeeX + toCoffeeY * toCoffeeY);
+}
+
 int main() {
     cv::VideoCapture cap(0);
     cap.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
@@ -188,10 +201,10 @@ int main() {
         cap >> frame;
         decodeQR(frame);
         // way(frame);
-        cv::imshow("frame", frame);
-        std::cout << getAngle() << std::endl;
-        if (cv::waitKey(1) == 'q') break;
-        if (cv::getWindowProperty("frame", cv::WND_PROP_VISIBLE) < 1) break;
+        // cv::imshow("frame", frame);
+        // std::cout << getAngle() << std::endl;
+        // if (cv::waitKey(1) == 'q') break;
+        // if (cv::getWindowProperty("frame", cv::WND_PROP_VISIBLE) < 1) break;
     }
     cap.release();
     cv::destroyAllWindows();
