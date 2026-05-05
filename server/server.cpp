@@ -4,7 +4,7 @@
 #include <atomic>
 #include "httplib.h"
 #include "nlohmann/json.hpp"
-#include "decodeQRcode.cpp"
+#include "decodeQRcode.h"
 
 using json = nlohmann::json;
 
@@ -25,11 +25,11 @@ public:
     }
     void (State::*curState)() = &State::checkAngle;
     State(){
-        angle = getAngle();
-        dist_move = getWay();
+        angle = QR::getAngle();
+        dist_move = QR::getWay();
     }
     void checkAngle(){
-        angle = getAngle();
+        angle = QR::getAngle();
         if (abs(angle) >= 5.0){
             curState = &State::goRotate;
         } else {
@@ -37,7 +37,7 @@ public:
         }
     }
     void checkDist(){
-        dist_move = getWay();
+        dist_move = QR::getWay();
         if (dist_move <= 200.0){
             curState = &State::goForward;
         } else {
