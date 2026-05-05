@@ -1,4 +1,2 @@
 *.exe
-opencv/
-*.dll
 build/
