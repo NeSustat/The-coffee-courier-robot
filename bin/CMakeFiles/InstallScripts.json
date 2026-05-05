@@ -1,0 +1,9 @@
+{
+	"InstallScripts" : 
+	[
+		"F:/vscode_proj/The-coffee-courier-robot/bin/cmake_install.cmake",
+		"F:/vscode_proj/The-coffee-courier-robot/bin/_deps/httplib-build/cmake_install.cmake",
+		"F:/vscode_proj/The-coffee-courier-robot/bin/_deps/json-build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

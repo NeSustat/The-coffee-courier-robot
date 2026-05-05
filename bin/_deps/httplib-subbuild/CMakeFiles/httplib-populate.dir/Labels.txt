@@ -1,0 +1,14 @@
+# Target labels
+ httplib-populate
+# Source files and their labels
+F:/vscode_proj/The-coffee-courier-robot/bin/_deps/httplib-subbuild/CMakeFiles/httplib-populate
+F:/vscode_proj/The-coffee-courier-robot/bin/_deps/httplib-subbuild/CMakeFiles/httplib-populate.rule
+F:/vscode_proj/The-coffee-courier-robot/bin/_deps/httplib-subbuild/CMakeFiles/httplib-populate-complete.rule
+F:/vscode_proj/The-coffee-courier-robot/bin/_deps/httplib-subbuild/httplib-populate-prefix/src/httplib-populate-stamp/httplib-populate-build.rule
+F:/vscode_proj/The-coffee-courier-robot/bin/_deps/httplib-subbuild/httplib-populate-prefix/src/httplib-populate-stamp/httplib-populate-configure.rule
+F:/vscode_proj/The-coffee-courier-robot/bin/_deps/httplib-subbuild/httplib-populate-prefix/src/httplib-populate-stamp/httplib-populate-download.rule
+F:/vscode_proj/The-coffee-courier-robot/bin/_deps/httplib-subbuild/httplib-populate-prefix/src/httplib-populate-stamp/httplib-populate-install.rule
+F:/vscode_proj/The-coffee-courier-robot/bin/_deps/httplib-subbuild/httplib-populate-prefix/src/httplib-populate-stamp/httplib-populate-mkdir.rule
+F:/vscode_proj/The-coffee-courier-robot/bin/_deps/httplib-subbuild/httplib-populate-prefix/src/httplib-populate-stamp/httplib-populate-patch.rule
+F:/vscode_proj/The-coffee-courier-robot/bin/_deps/httplib-subbuild/httplib-populate-prefix/src/httplib-populate-stamp/httplib-populate-test.rule
+F:/vscode_proj/The-coffee-courier-robot/bin/_deps/httplib-subbuild/httplib-populate-prefix/src/httplib-populate-stamp/httplib-populate-update.rule

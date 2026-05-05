@@ -5,13 +5,16 @@
 #include "httplib.h"
 #include "nlohmann/json.hpp"
 #include "decodeQRcode.h"
+#include <csignal>
 
 using json = nlohmann::json;
 
-std::mutex mtx, mtxQR;
+std::mutex mtx;
 std::string g_action = "stop";
 double g_time = 0;
 std::atomic<bool> running{true};
+
+std::string localhost = "0.0.0.0";
 
 class State{
 public:
@@ -23,7 +26,7 @@ public:
         while (running)
             (this->*curState)();
     }
-    void (State::*curState)() = &State::checkAngle;
+    void (State::*curState)() = &State::waiting;
     State(){
         angle = QR::getAngle();
         dist_move = QR::getWay();
@@ -38,15 +41,22 @@ public:
     }
     void checkDist(){
         dist_move = QR::getWay();
-        if (dist_move <= 200.0){
+        std::cout << "DIST: " << dist_move << std::endl;
+        if (dist_move >= 50.0){
             curState = &State::goForward;
         } else {
             action = "stop";
             time = 200;
-            curState = &State::wating;
+            curState = &State::waiting;
         }
     }
-    void wating(){
+    void waiting(){
+        {
+            std::lock_guard<std::mutex> lock(mtx);
+            g_action = action;
+            g_time = time;
+            // std::cout << g_action << " " << time << std::endl;
+        }
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
         curState = &State::checkAngle;
     }
@@ -58,51 +68,53 @@ public:
         } else {
             action = "right";
         }
-        curState = &State::wating;
+        curState = &State::waiting;
     }
     void goForward(){
         std::lock_guard<std::mutex> lock(mtx);
         action = "forward";
         time = 200;
-        curState = &State::wating;
+        curState = &State::waiting;
     }
 };
 
+httplib::Server svr;
+
+void signalHandler(int) {
+    running = false;
+    svr.stop();
+    QR::close();
+}
+
+State state;
+
 int main() {
-    httplib::Server svr;
+    std::signal(SIGINT, signalHandler);
 
+    std::thread QR_thread(QR::run);
 
+    std::thread logic_thread([&]() { state.run(); });
     svr.Get("/poll", [](const httplib::Request&, httplib::Response& res) {
+        if (!QR::checkAllQR) {
+            res.status = 503;
+            return;
+        }
         std::lock_guard<std::mutex> lock(mtx);
         json command;
         command["action"] = g_action;
         command["time"]   = g_time;
         g_action = "stop";
         g_time = 200;
+        std::cout << "poll: " << command.dump() << "\n";
         res.set_content(command.dump(), "application/json");
     });
 
-    std::thread server_thread([&]() {
-        svr.listen("localhost", 8080);
-    });
+    std::cout << "Server started on port 8080\n";
+    svr.listen(localhost, 8080); // блокирует до svr.stop()
 
-    std::cout << "Commands: forward / left / right / stop / exit  +  time(ms)\n";
-    while (running) {
-        State state;
-        std::thread logic_thread([&]() { state.run(); });
-
-
-        if (state.action == "exit") {
-            running = false;
-            svr.stop(); // останавливает svr.listen() → server_thread завершается
-            break;
-        }
-
-        std::lock_guard<std::mutex> lock(mtx);
-        g_action = state.action;
-        g_time   = state.time;
-    }
-
-    server_thread.join(); // ждём завершения потока и освобождаем ресурсы
+    running = false;
+    logic_thread.join();
+    QR::close();
+    QR_thread.join();
     return 0;
 }

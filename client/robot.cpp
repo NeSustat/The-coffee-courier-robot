@@ -11,7 +11,7 @@ constexpr int SERVER_PORT = 8080;
 constexpr const char* POLL_PATH = "/poll";
 constexpr int CONNECT_TIMEOUT_SEC = 1;
 constexpr int READ_TIMEOUT_SEC   = 2;
-constexpr int POLL_INTERVAL_MS   = 200;
+constexpr int POLL_INTERVAL_MS   = 1000;
 
 
 void thr(int time_ms){

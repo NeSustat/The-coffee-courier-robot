@@ -11,9 +11,12 @@ struct point{
     int by;
 };
 
+
 namespace QR{
 
 point robot, coffee;
+bool running = true;
+bool checkAllQR = false;
 
 // bool tryDecode(cv::QRCodeDetector& QR, cv::Mat& processed, cv::Mat& img, std::vector<cv::Point>& points, std::vector<cv::String>& data) {
 //     if (QR.detectAndDecodeMulti(processed, data, points) && !data.empty())
@@ -27,6 +30,18 @@ void binarization(cv::Mat& img, cv::Mat& gray){
     cv::adaptiveThreshold(gray, img, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 51, 2);
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3,3));
     cv::morphologyEx(img, img, cv::MORPH_CLOSE, kernel);
+}
+
+bool check(std::vector<cv::String> data){
+    int counter = 0;
+    for (int i = 0; i < (int)data.size(); i++){
+        std::string s = data[i];
+        s.erase(remove_if(s.begin(), s.end(), ::isspace), s.end());
+        if (s == "robotA" || s == " robotB " || s == "coffee")
+            counter++;
+    }
+    if (counter == 3) return true;
+    return false;
 }
 
 // void binarization(cv::Mat& img){
@@ -95,11 +110,43 @@ void decodeQR(cv::Mat& img){
                 std::cout << "detect QR Code: " << (int)data.size() << std::endl;
                 std::cout << "[" << data[i] << "]" << std::endl;
             }
+            check(data);
         }
     }
     point.clear();
     data.clear();
 }
+
+void findColors(cv::Mat& img){
+    cv::Mat hsv;
+    cv::cvtColor(img, hsv, cv::COLOR_BGR2HSV);
+
+    auto getCenter = [&](cv::Scalar low, cv::Scalar high) -> cv::Point {
+        cv::Mat mask;
+        cv::inRange(hsv, low, high, mask);
+        std::vector<std::vector<cv::Point>> contours;
+        cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+        if (contours.empty()) return {0, 0};
+        auto& maxC = *std::max_element(contours.begin(), contours.end(),
+            [](auto& a, auto& b){ return cv::contourArea(a) < cv::contourArea(b); });
+        if (cv::contourArea(maxC) < 500) return {0, 0};
+        auto r = cv::boundingRect(maxC);
+        return {r.x + r.width/2, r.y + r.height/2};
+    };
+
+    auto pink  = getCenter({140, 50, 150}, {170, 255, 255});
+    auto green = getCenter({40, 100, 100}, {80, 255, 255});
+    auto blue = getCenter({100, 150, 50}, {130, 255, 255});
+
+
+    if (pink.x)  { robot.bx = pink.x;  robot.by = pink.y; }
+    if (green.x) { robot.ax = green.x; robot.ay = green.y; }
+    if (blue.x) { coffee.ax = blue.x; coffee.ay = blue.y; }
+
+    checkAllQR = (pink.x && green.x && blue.x);
+    
+}
+
 
 void robotLine(cv::Mat& img){
     cv::Point startPoint = {robot.bx, robot.by};
@@ -176,12 +223,15 @@ double getAngle() {
     double dot = robotDirX * toCoffeeX + robotDirY * toCoffeeY;
     double cross = robotDirX * toCoffeeY - robotDirY * toCoffeeX;
     double angle = atan2(cross, dot) * 180.0 / CV_PI;
-
+    // std::cout << "robotA: " << robot.ax << "," << robot.ay 
+    //       << " robotB: " << robot.bx << "," << robot.by
+    //       << " coffee: " << coffee.ax << "," << coffee.ay << "\n";
+    // std::cout << "angle: " << angle << "\n";
     return angle;
 }
 
 double getWay(){
-        // центр робота
+    // центр робота
     double centerX = (robot.ax + robot.bx) / 2.0;
     double centerY = (robot.ay + robot.by) / 2.0;
 
@@ -193,8 +243,10 @@ double getWay(){
 }
 
 void close(){
-    
+    running = false;
 }
+
+
 
 void run(){
     cv::VideoCapture cap(0);
@@ -203,13 +255,13 @@ void run(){
     if (!cap.isOpened()) return;
 
     cv::Mat frame;
-    while (true) {
+    while (running) {
         cap >> frame;
-        decodeQR(frame);
-        // way(frame);
-        // cv::imshow("frame", frame);
+        cv::imshow("frame", frame);
+        findColors(frame);
+        way(frame);
         // std::cout << getAngle() << std::endl;
-        // if (cv::waitKey(1) == 'q') break;
+        if (cv::waitKey(1) == 'q') break;
         // if (cv::getWindowProperty("frame", cv::WND_PROP_VISIBLE) < 1) break;
     }
     cap.release();

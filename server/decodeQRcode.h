@@ -5,12 +5,13 @@
 #include <cmath>
 
 namespace QR{
-
+    extern bool checkAllQR;
     /*работа с изображением*/
     void binarization(cv::Mat& img, cv::Mat& gray);
     void quality(cv::Mat& img); // получает изображение и повышает его качество. результат в img
     void perspective(std::vector<cv::Point2f>& imgPoint, cv::Mat& img); //получает точки изображения, которое надо выравнить, и изображение. выравнивает, результат в img
     void decoderQR(cv::Mat& img); // получает изображени, ищет и читает значение
+    void findColors(cv::Mat& img);
     /*=====================*/
     /* ± бесполезно для дальнейшего проекта*/
     void robotLine(cv::Mat& img); // рисует линию между центрами QR codов робота
