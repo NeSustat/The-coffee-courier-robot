@@ -14,3 +14,8 @@ _один раз_
 cd bin
 mingw32-make
 ```
+
+_облако_
+```bash
+https://cloud.mail.ru/public/RQh8/XXLN6EgY3
+```
