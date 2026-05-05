@@ -27,13 +27,13 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(json)
 
 # decodeQRcode
-add_executable(decodeQRcode decodeQRcode.cpp)
+add_executable(decodeQRcode server/decodeQRcode.cpp)
 target_link_libraries(decodeQRcode PRIVATE ${OpenCV_LIBS})
 
 # server
-add_executable(server server.cpp)
+add_executable(server server/server.cpp)
 target_link_libraries(server PRIVATE httplib nlohmann_json::nlohmann_json)
 
 # main (robot client)
-add_executable(robot main.cpp)
+add_executable(robot client/robot.cpp)
 target_link_libraries(robot PRIVATE httplib nlohmann_json::nlohmann_json)
