@@ -46,7 +46,7 @@ public:
             curState = &State::goForward;
         } else {
             action = "stop";
-            time = 200;
+            time = 1000;
             curState = &State::waiting;
         }
     }
@@ -62,7 +62,7 @@ public:
     }
     void goRotate(){
         std::lock_guard<std::mutex> lock(mtx);  
-        time = 200;
+        time = (abs(angle) * 5 >= 400 ? 400 : abs(angle) * 5);
         if (angle > 0){
             action = "left";
         } else {
@@ -73,7 +73,7 @@ public:
     void goForward(){
         std::lock_guard<std::mutex> lock(mtx);
         action = "forward";
-        time = 200;
+        time = (dist_move * 10 >= 500 ? 500 : dist_move * 10);
         curState = &State::waiting;
     }
 };
