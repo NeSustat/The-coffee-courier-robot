@@ -1,65 +1,123 @@
-import httpx
+
+import urllib.request
+import urllib.error
+import json
 import time
-from gpiozero import Robot as GpioZeroRobot
-from gpiozero.pins.pigpio import PiGPIOFactory
+import signal
+import sys
+import RPi.GPIO as GPIO
 
-server_url = "http://127.0.0.1:8080/poll"
-poll_interval = 1.0
+# === КОНФИГУРАЦИЯ ===
+SERVER_URL = "http://192.168.1.50:8080/poll"   #  IP вашего сервера в локальной сети
+POLL_INTERVAL = 0.5                             # Опрос каждые 0.5 сек
+MAX_TIME_MS = 10000                             # Макс. длительность команды (мс)
+TIMEOUT_SEC = 3                                 # Таймаут запроса
+# ===================
 
-# 1. Настройка удаленного подключения к Raspberry Pi
-# Замените на реальный IP-адрес вашей платы в локальной сети
-RPI_IP = "192.168.1.100" 
-factory = PiGPIOFactory(host=RPI_IP)
+# Пины в нумерации BCM (стандарт для AlphaBot / L298N)
+PINS = {
+    "L_FWD": 12,  # IN1
+    "L_BWD": 13,  # IN2
+    "R_FWD": 20,  # IN3
+    "R_BWD": 21   # IN4
+}
 
 class Robot:
     def __init__(self):
-        # 2. Инициализация моторов через gpiozero
-        # Параметры: left=(вперед, назад), right=(вперед, назад)
-        # Укажите ваши GPIO пины, к которым подключен драйвер моторов (например, L298N)
-        self.device = GpioZeroRobot(left=(12, 13), right=(20, 21), pin_factory=factory)
-        print("Робот успешно подключен к Raspberry Pi!")
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setwarnings(False)
+        for pin in PINS.values():
+            GPIO.setup(pin, GPIO.OUT)
+            GPIO.output(pin, GPIO.LOW)
+        print("🤖 Робот инициализирован (RPi.GPIO + urllib)")
+
+    def _set_motors(self, l_fwd, l_bwd, r_fwd, r_bwd):
+        GPIO.output(PINS["L_FWD"], l_fwd)
+        GPIO.output(PINS["L_BWD"], l_bwd)
+        GPIO.output(PINS["R_FWD"], r_fwd)
+        GPIO.output(PINS["R_BWD"], r_bwd)
 
     def forward(self, time_ms):
-        print(f"Едем вперед {time_ms} мс")
-        self.device.forward()
-        time.sleep(time_ms / 1000.0)  # Переводим миллисекунды в секунды
-        self.device.stop()
+        print(f"⬆️ Вперёд {time_ms} мс")
+        self._set_motors(True, False, True, False)
+        time.sleep(time_ms / 1000.0)
+        self.stop()
 
     def left(self, time_ms):
-        print(f"Едем влево {time_ms} мс")
-        self.device.left()
+        print(f"⬅️ Влево {time_ms} мс")
+        # Разворот на месте: левый назад, правый вперёд
+        self._set_motors(False, True, True, False)
         time.sleep(time_ms / 1000.0)
-        self.device.stop()
+        self.stop()
 
     def right(self, time_ms):
-        print(f"Едем вправо {time_ms} мс")
-        self.device.right()
+        print(f"➡️ Вправо {time_ms} мс")
+        # Разворот на месте: левый вперёд, правый назад
+        self._set_motors(True, False, False, True)
         time.sleep(time_ms / 1000.0)
-        self.device.stop()
+        self.stop()
 
     def stop(self):
-        print("Остановка")
-        self.device.stop()
+        print("⏹️ Остановка")
+        self._set_motors(False, False, False, False)
 
-# Создаем экземпляр нашего робота
-robot_nasil = Robot()
+    def cleanup(self):
+        self.stop()
+        GPIO.cleanup()
 
-with httpx.Client() as client:
+# Создаём экземпляр
+robot = Robot()
+
+#  Обработчик сигналов для безопасного завершения
+def graceful_exit(sig, frame):
+    print("\n Получен сигнал завершения. Остановка...")
+    robot.cleanup()
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, graceful_exit)
+signal.signal(signal.SIGTERM, graceful_exit)
+
+#  Основной цикл опроса сервера
+def poll_server():
+    try:
+        # urllib.request.urlopen поддерживает таймаут
+        with urllib.request.urlopen(SERVER_URL, timeout=TIMEOUT_SEC) as response:
+            # Читаем и декодируем ответ
+            body = response.read().decode('utf-8')
+            # Парсим JSON
+            data = json.loads(body)
+            
+            action = data.get("action", "stop")
+            t_ms = max(0, min(int(data.get("time", 0)), MAX_TIME_MS))
+            
+            if action == "forward":
+                robot.forward(t_ms)
+            elif action == "left":
+                robot.left(t_ms)
+            elif action == "right":
+                robot.right(t_ms)
+            else:
+                robot.stop()
+                
+    except urllib.error.HTTPError as e:
+        print(f"[HTTP] Ошибка {e.code}: {e.reason}")
+    except urllib.error.URLError as e:
+        print(f"[NET] Нет связи с сервером: {e.reason}")
+    except json.JSONDecodeError as e:
+        print(f"[JSON] Неверный формат ответа: {e}")
+    except (KeyError, ValueError) as e:
+        print(f"[DATA] Ошибка в данных: {e}")
+    except Exception as e:
+        print(f"[ERR] Неожиданная ошибка: {e}")
+
+#  Главный цикл
+try:
+    print(f"[OK] Подключение к {SERVER_URL}...")
     while True:
-        try:
-            r = client.get(server_url, timeout=2)
-            if r.status_code == 200:
-                data = r.json()
-                action = data["action"]
-                t = int(data["time"])
-                if action == "forward":
-                    robot_nasil.forward(t)
-                elif action == "left":
-                    robot_nasil.left(t)
-                elif action == "right":
-                    robot_nasil.right(t)
-                else:
-                    robot_nasil.stop()
-        except Exception as e:
-            print(f"error: {e}")
-        time.sleep(poll_interval)
+        poll_server()
+        time.sleep(POLL_INTERVAL)
+        
+except KeyboardInterrupt:
+    graceful_exit(None, None)
+finally:
+    robot.cleanup()
