@@ -14,6 +14,9 @@ std::string g_action = "stop";
 double g_time = 0;
 std::atomic<bool> running{true};
 
+int pause = 200;
+
+
 std::string localhost = "0.0.0.0";
 
 class State{
@@ -24,6 +27,7 @@ public:
     double time;
     void run() {
         while (running)
+            // std::cout << "action: " << g_action << " time: " << g_time << "\n";
             (this->*curState)();
     }
     void (State::*curState)() = &State::waiting;
@@ -41,7 +45,6 @@ public:
     }
     void checkDist(){
         dist_move = QR::getWay();
-        std::cout << "DIST: " << dist_move << std::endl;
         if (dist_move >= 50.0){
             curState = &State::goForward;
         } else {
@@ -51,18 +54,19 @@ public:
         }
     }
     void waiting(){
+        pause = g_time;
         {
             std::lock_guard<std::mutex> lock(mtx);
             g_action = action;
             g_time = time;
             // std::cout << g_action << " " << time << std::endl;
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        std::this_thread::sleep_for(std::chrono::milliseconds(pause));
         curState = &State::checkAngle;
     }
     void goRotate(){
         std::lock_guard<std::mutex> lock(mtx);  
-        time = (abs(angle) * 5 >= 400 ? 400 : abs(angle) * 5);
+        time = (abs(angle) * 2.5 >= 400 ? 400 : abs(angle) * 2.5);
         if (angle > 0){
             action = "left";
         } else {
@@ -73,7 +77,7 @@ public:
     void goForward(){
         std::lock_guard<std::mutex> lock(mtx);
         action = "forward";
-        time = (dist_move * 10 >= 500 ? 500 : dist_move * 10);
+        time = 50;
         curState = &State::waiting;
     }
 };

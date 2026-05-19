@@ -18,13 +18,13 @@ point robot, coffee;
 bool running = true;
 bool checkAllQR = false;
 
-// bool tryDecode(cv::QRCodeDetector& QR, cv::Mat& processed, cv::Mat& img, std::vector<cv::Point>& points, std::vector<cv::String>& data) {
-//     if (QR.detectAndDecodeMulti(processed, data, points) && !data.empty())
-//         return true;
-//     data.clear();
-//     points.clear();
-//     return false;
-// }
+bool tryDecode(cv::QRCodeDetector& QR, cv::Mat& processed, cv::Mat& img, std::vector<cv::Point>& points, std::vector<cv::String>& data) {
+    if (QR.detectAndDecodeMulti(processed, data, points) && !data.empty())
+        return true;
+    data.clear();
+    points.clear();
+    return false;
+}
 
 void binarization(cv::Mat& img, cv::Mat& gray){
     cv::adaptiveThreshold(gray, img, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 51, 2);
@@ -75,47 +75,47 @@ void perspective(std::vector<cv::Point2f>& imgPoint, cv::Mat& img){
     cv::warpPerspective(img, img, M, cv::Size(512, 512), cv::INTER_CUBIC);
 }
 
-void decodeQR(cv::Mat& img){
-    cv::QRCodeDetector QR;
-    quality(img);
-    std::vector<cv::Point2f> point;
-    std::vector<cv::String> data;
-    if (QR.detectMulti(img, point) && !point.empty()){
-        for (int i = 0; i < (int)point.size() / 4; i++){
-            // находим центр
-            cv::Point2f center(0, 0);
-            for (int j = i*4; j < i*4+4; j++)
-                center += point[j];
-            center *= 0.25f;
+// void decodeQR(cv::Mat& img){
+//     cv::QRCodeDetector QR;
+//     quality(img);
+//     std::vector<cv::Point2f> point;
+//     std::vector<cv::String> data;
+//     if (QR.detectMulti(img, point) && !point.empty()){
+//         for (int i = 0; i < (int)point.size() / 4; i++){
+//             // находим центр
+//             cv::Point2f center(0, 0);
+//             for (int j = i*4; j < i*4+4; j++)
+//                 center += point[j];
+//             center *= 0.25f;
 
-            // расширяем точки от центра
-            std::vector<cv::Point2f> qrPoints;
-            for (int j = i*4; j < i*4+4; j++){
-                cv::Point2f dir = point[j] - center;
-                qrPoints.push_back(point[j] + dir * 0.1f); // 0.1f = 10% отступ
-            }
+//             // расширяем точки от центра
+//             std::vector<cv::Point2f> qrPoints;
+//             for (int j = i*4; j < i*4+4; j++){
+//                 cv::Point2f dir = point[j] - center;
+//                 qrPoints.push_back(point[j] + dir * 0.1f); // 0.1f = 10% отступ
+//             }
 
-            // std::vector<cv::Point2f> qrPoints = {
-            //     point[i * 4],
-            //     point[i * 4 + 1],
-            //     point[i * 4 + 2],
-            //     point[i * 4 + 3]
-            // };
+//             // std::vector<cv::Point2f> qrPoints = {
+//             //     point[i * 4],
+//             //     point[i * 4 + 1],
+//             //     point[i * 4 + 2],
+//             //     point[i * 4 + 3]
+//             // };
 
-            perspective(qrPoints, img);
+//             perspective(qrPoints, img);
 
-            QR.detectAndDecodeMulti(img, data, point);
+//             QR.detectAndDecodeMulti(img, data, point);
             
-            for (int i = 0; i < (int)data.size(); i++){
-                std::cout << "detect QR Code: " << (int)data.size() << std::endl;
-                std::cout << "[" << data[i] << "]" << std::endl;
-            }
-            check(data);
-        }
-    }
-    point.clear();
-    data.clear();
-}
+//             for (int i = 0; i < (int)data.size(); i++){
+//                 std::cout << "detect QR Code: " << (int)data.size() << std::endl;
+//                 std::cout << "[" << data[i] << "]" << std::endl;
+//             }
+//             check(data);
+//         }
+//     }
+//     point.clear();
+//     data.clear();
+// }
 
 void findColors(cv::Mat& img){
     cv::Mat hsv;
@@ -163,48 +163,47 @@ void way(cv::Mat& img) {
     robotLine(img);
 }
 
-// void decodeQR(cv::Mat& img) {
-//     cv::QRCodeDetector QR;
-//     std::vector<cv::Point> points;
-//     std::vector<cv::String> data;
-//     cv::Mat gray, processed;
+void decodeQR(cv::Mat& img) {
+    cv::QRCodeDetector QR;
+    std::vector<cv::Point> points;
+    std::vector<cv::String> data;
+    cv::Mat gray, processed;
 
-//     cv::cvtColor(img, gray, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(img, gray, cv::COLOR_BGR2GRAY);
 
-//     if (!tryDecode(QR, gray, img, points, data)) {
-//         cv::adaptiveThreshold(gray, processed, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 51, 10);
-//         if (!tryDecode(QR, processed, img, points, data)) {
-//             cv::resize(gray, processed, cv::Size(), 2.0, 2.0);
-//             tryDecode(QR, processed, img, points, data);
-//             for (auto& p : points) { p.x /= 2; p.y /= 2; }
-//         }
-//     }
+    if (!tryDecode(QR, gray, img, points, data)) {
+        cv::adaptiveThreshold(gray, processed, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 51, 10);
+        if (!tryDecode(QR, processed, img, points, data)) {
+            cv::resize(gray, processed, cv::Size(), 2.0, 2.0);
+            tryDecode(QR, processed, img, points, data);
+            for (auto& p : points) { p.x /= 2; p.y /= 2; }
+        }
+    }
 
-//     for (int i = 0; i < (int)data.size(); i++) {
-//         std::vector<cv::Point> qr_points(points.begin() + i * 4, points.begin() + i * 4 + 4);
-//         cv::polylines(img, {qr_points}, true, cv::Scalar(0, 255, 0), 3);
-//         if (!data[i].empty()){
-//             cv::Point center = {
-//                 (qr_points[0].x + qr_points[1].x + qr_points[2].x + qr_points[3].x) / 4,
-//                 (qr_points[0].y + qr_points[1].y + qr_points[2].y + qr_points[3].y) / 4
-//             };
-//             std::string s = data[i];
-//             s.erase(remove_if(s.begin(), s.end(), ::isspace), s.end());
-//             // std::cout << data[i] << std::endl;
-//             if (s == "robotA") {
-//                 robot.ax = center.x;
-//                 robot.ay = center.y;
-//             } else if (s == "robotB") {
-//                 robot.bx = center.x;
-//                 robot.by = center.y;
-//             } else if (s == "coffee") {
-//                 coffee.ax = center.x;
-//                 coffee.ay = center.y;
-//             }
-//             // std::cout << qr_points[i] << std::endl;
-//         }
-//     }
-// }
+    for (int i = 0; i < (int)data.size(); i++) {
+        std::vector<cv::Point> qr_points(points.begin() + i * 4, points.begin() + i * 4 + 4);
+        cv::polylines(img, {qr_points}, true, cv::Scalar(0, 255, 0), 3);
+        if (!data[i].empty()){
+            cv::Point center = {
+                (qr_points[0].x + qr_points[1].x + qr_points[2].x + qr_points[3].x) / 4,
+                (qr_points[0].y + qr_points[1].y + qr_points[2].y + qr_points[3].y) / 4
+            };
+            std::string s = data[i];
+            s.erase(remove_if(s.begin(), s.end(), ::isspace), s.end());
+            if (s == "robotA") {
+                robot.ax = center.x;
+                robot.ay = center.y;
+            } else if (s == "robotB") {
+                robot.bx = center.x;
+                robot.by = center.y;
+            } else if (s == "coffee") {
+                coffee.ax = center.x;
+                coffee.ay = center.y;
+            }
+        }
+    }
+    checkAllQR = (robot.ax != 0 && robot.bx != 0 && coffee.ax != 0);
+}
 
 double getAngle() {
     // направление "перед" робота: от B к A
@@ -258,8 +257,10 @@ void run(){
     while (running) {
         cap >> frame;
         cv::imshow("frame", frame);
-        findColors(frame);
+        decodeQR(frame);
         way(frame);
+        std::cout << QR::getWay() << std::endl;
+        std::cout << QR::getAngle() << std::endl;
         // std::cout << getAngle() << std::endl;
         if (cv::waitKey(1) == 'q') break;
         // if (cv::getWindowProperty("frame", cv::WND_PROP_VISIBLE) < 1) break;
