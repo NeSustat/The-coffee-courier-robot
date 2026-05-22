@@ -352,5 +352,4 @@ CMakeFiles/server.dir/server/decodeQRcode.cpp.obj: \
  F:/vscode_proj/The-coffee-courier-robot/opencv/include/opencv2/stitching/detail/camera.hpp \
  F:/vscode_proj/The-coffee-courier-robot/opencv/include/opencv2/video.hpp \
  F:/vscode_proj/The-coffee-courier-robot/opencv/include/opencv2/video/tracking.hpp \
- F:/vscode_proj/The-coffee-courier-robot/opencv/include/opencv2/video/background_segm.hpp \
- F:\vscode_proj\The-coffee-courier-robot\server\decodeQRcode.h
+ F:/vscode_proj/The-coffee-courier-robot/opencv/include/opencv2/video/background_segm.hpp

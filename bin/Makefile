@@ -173,6 +173,43 @@ server/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\server.dir\build.make CMakeFiles/server.dir/build
 .PHONY : server/fast
 
+#=============================================================================
+# Target rules for targets named robot
+
+# Build rule for target.
+robot: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 robot
+.PHONY : robot
+
+# fast build rule for target.
+robot/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\robot.dir\build.make CMakeFiles/robot.dir/build
+.PHONY : robot/fast
+
+client/robot.obj: client/robot.cpp.obj
+.PHONY : client/robot.obj
+
+# target to build an object file
+client/robot.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\robot.dir\build.make CMakeFiles/robot.dir/client/robot.cpp.obj
+.PHONY : client/robot.cpp.obj
+
+client/robot.i: client/robot.cpp.i
+.PHONY : client/robot.i
+
+# target to preprocess a source file
+client/robot.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\robot.dir\build.make CMakeFiles/robot.dir/client/robot.cpp.i
+.PHONY : client/robot.cpp.i
+
+client/robot.s: client/robot.cpp.s
+.PHONY : client/robot.s
+
+# target to generate assembly for a file
+client/robot.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\robot.dir\build.make CMakeFiles/robot.dir/client/robot.cpp.s
+.PHONY : client/robot.cpp.s
+
 server/decodeQRcode.obj: server/decodeQRcode.cpp.obj
 .PHONY : server/decodeQRcode.obj
 
@@ -233,7 +270,11 @@ help:
 	@echo ... install/strip
 	@echo ... list_install_components
 	@echo ... rebuild_cache
+	@echo ... robot
 	@echo ... server
+	@echo ... client/robot.obj
+	@echo ... client/robot.i
+	@echo ... client/robot.s
 	@echo ... server/decodeQRcode.obj
 	@echo ... server/decodeQRcode.i
 	@echo ... server/decodeQRcode.s
