@@ -4,16 +4,13 @@ import json
 import time
 import threading
 import requests
-from typing import List, Tuple
-import os
+from typing import Dict, Tuple
 
 
-# Точки для расчётов
-pered = (0, 0)
-zad = (0, 0)
-centre = (0, 0)
-user = (0, 0)
-station = (0, 0)
+# Координаты робота и целей
+robotA_pos = None  # Передняя часть робота (переди)
+robotB_pos = None  # Задняя часть робота (зад)
+coffee_pos = None  # Целевая точка (куда надо приехать)
 
 # Переменные для контроля направления и расстояния
 angle = 0.0
@@ -28,158 +25,177 @@ velocity = 52  # линейная скорость
 min_angle = 5
 min_dist = 10
 
-# Цвета маркеров
-COLOR_RED = 0
-COLOR_GREEN = 1
-COLOR_BLUE = 2
-COLOR_PURPLE = 3
-
 # Блокировка для потокобезопасности
 lock = threading.Lock()
 
 # URL сервера команд
 SERVER_URL = "http://192.168.1.102:8081/command"
 
-
-def calculate_centre():
-    """Вычисление центра между передней и задней точками"""
-    global centre, pered, zad
-    centre = ((pered[0] + zad[0]) // 2, (pered[1] + zad[1]) // 2)
+# Словарь обнаруженных QR кодов
+detected_qr_codes = {}
 
 
-def calculate_angle():
-    """Вычисление угла между направлением робота и целью"""
-    global angle, direction, centre, pered, station
+def detect_qr_codes(frame):
+    """Обнаружение QR кодов в кадре"""
+    global robotA_pos, robotB_pos, coffee_pos, detected_qr_codes
     
-    a = np.array([pered[0] - centre[0], pered[1] - centre[1]], dtype=np.float32)
-    b = np.array([station[0] - centre[0], station[1] - centre[1]], dtype=np.float32)
+    detector = cv2.QRCodeDetector()
     
-    b_length = np.linalg.norm(b)
-    a_length = np.linalg.norm(a)
+    # Поиск всех QR кодов в кадре
+    retval, decoded_info, points, _ = detector.detectMulti(frame)
     
-    if a_length == 0 or b_length == 0:
-        return
+    if retval:
+        for i in range(len(decoded_info)):
+            data = decoded_info[i]
+            qr_points = points[i]
+            
+            if data:
+                print(f"QR Code found: {data}")
+                
+                # Вычисление центра QR кода
+                center = np.mean(qr_points, axis=0)
+                center_x = int(center[0])
+                center_y = int(center[1])
+                
+                # Сохранение координат в зависимости от содержимого QR кода
+                if data == "robotA":
+                    robotA_pos = (center_x, center_y)
+                    detected_qr_codes["robotA"] = (center_x, center_y)
+                    print(f"  robotA (переди) at {robotA_pos}")
+                
+                elif data == "robotB":
+                    robotB_pos = (center_x, center_y)
+                    detected_qr_codes["robotB"] = (center_x, center_y)
+                    print(f"  robotB (зад) at {robotB_pos}")
+                
+                elif data == "coffee":
+                    coffee_pos = (center_x, center_y)
+                    detected_qr_codes["coffee"] = (center_x, center_y)
+                    print(f"  coffee (цель) at {coffee_pos}")
+                
+                # Рисование контура QR кода на экране
+                draw_qr_contour(frame, qr_points, data)
+
+
+def draw_qr_contour(frame, points, label):
+    """Рисование контура QR кода и подписи"""
+    points = np.int32(points)
     
-    cos_angle = np.dot(a, b) / (a_length * b_length)
+    # Цвет в зависимости от типа QR кода
+    if label == "robotA":
+        color = (0, 255, 0)  # Зелёный
+    elif label == "robotB":
+        color = (255, 0, 0)  # Красный
+    elif label == "coffee":
+        color = (0, 0, 255)  # Синий
+    else:
+        color = (255, 255, 255)  # Белый
+    
+    # Рисование контура
+    for i in range(len(points)):
+        pt1 = tuple(points[i])
+        pt2 = tuple(points[(i + 1) % len(points)])
+        cv2.line(frame, pt1, pt2, color, 2)
+    
+    # Рисование текста с названием
+    center = np.mean(points, axis=0)
+    cv2.putText(frame, label, tuple(map(int, center)), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
+
+def calculate_robot_parameters():
+    """Вычисление угла и расстояния до цели"""
+    global angle, distance, direction, robotA_pos, robotB_pos, coffee_pos
+    
+    if robotA_pos is None or robotB_pos is None or coffee_pos is None:
+        print("Ожидание обнаружения всех QR кодов...")
+        return False
+    
+    # Вычисление центра робота
+    centre = (
+        (robotA_pos[0] + robotB_pos[0]) // 2,
+        (robotA_pos[1] + robotB_pos[1]) // 2
+    )
+    
+    # Вектор направления робота (от зада к передней части)
+    robot_direction = np.array([
+        robotA_pos[0] - centre[0],
+        robotA_pos[1] - centre[1]
+    ], dtype=np.float32)
+    
+    # Вектор до цели (от центра робота к coffee)
+    to_target = np.array([
+        coffee_pos[0] - centre[0],
+        coffee_pos[1] - centre[1]
+    ], dtype=np.float32)
+    
+    robot_dir_length = np.linalg.norm(robot_direction)
+    target_length = np.linalg.norm(to_target)
+    
+    if robot_dir_length == 0 or target_length == 0:
+        return False
+    
+    # Вычисление угла между направлением робота и целью
+    cos_angle = np.dot(robot_direction, to_target) / (robot_dir_length * target_length)
     cos_angle = np.clip(cos_angle, -1, 1)
     angle = np.arccos(cos_angle) * 180 / np.pi
     
-    perpendicular = a[0] * b[1] - a[1] * b[0]
+    # Определение направления поворота (влево или вправо)
+    perpendicular = robot_direction[0] * to_target[1] - robot_direction[1] * to_target[0]
     direction = 1 if perpendicular > 0 else 0
-
-
-def calculate_distance_value():
-    """Вычисление расстояния до целевой точки"""
-    global distance, centre, station
     
-    b = np.array([station[0] - centre[0], station[1] - centre[1]], dtype=np.float32)
-    distance = np.linalg.norm(b)
-
-
-def calculate():
-    """Полный расчёт параметров движения"""
-    calculate_centre()
-    calculate_angle()
-    calculate_distance_value()
-    print(f"Direction: {direction}")
-    print(f"Angle: {angle:.2f}, Distance: {distance:.2f}")
-
-
-def draw_lines(frame):
-    """Рисование линий на кадре для визуализации"""
-    cv2.line(frame, pered, zad, (255, 0, 0), 1)
-    cv2.line(frame, centre, station, (255, 0, 0), 1)
-
-
-def decode_qr_code(qrcode, src_points):
-    """Декодирование QR кода и определение типа маркера"""
-    global pered, zad, user, station
+    # Вычисление расстояния до цели
+    distance = target_length
     
-    detector = cv2.QRCodeDetector()
-    data, points, _ = detector.detectAndDecode(qrcode)
-    
-    if data:
-        print(f"QR Data: {data}")
+    print(f"Угол: {angle:.2f}°, Расстояние: {distance:.2f} пиксели, Направление: {'вправо' if direction else 'влево'}")
+    return True
+
+
+def draw_info_on_frame(frame):
+    """Рисование информации на кадре"""
+    if robotA_pos and robotB_pos:
+        centre = (
+            (robotA_pos[0] + robotB_pos[0]) // 2,
+            (robotA_pos[1] + robotB_pos[1]) // 2
+        )
         
-        center_x = np.mean([p[0] for p in src_points])
-        center_y = np.mean([p[1] for p in src_points])
+        # Рисование линии направления робота
+        cv2.line(frame, centre, robotA_pos, (100, 100, 100), 2)
+    
+    if coffee_pos and robotA_pos and robotB_pos:
+        centre = (
+            (robotA_pos[0] + robotB_pos[0]) // 2,
+            (robotA_pos[1] + robotB_pos[1]) // 2
+        )
         
-        if data == "1":
-            pered = (int(center_x), int(center_y))
-        elif data == "2":
-            zad = (int(center_x), int(center_y))
-        elif data == "3":
-            user = (int(center_x), int(center_y))
-        elif data == "4":
-            station = (int(center_x), int(center_y))
-        
-        calculate()
-
-
-def correct_perspective(img, src_points):
-    """Коррекция перспективы для QR кода"""
-    src_points = np.array(src_points, dtype=np.float32)
+        # Рисование линии к цели
+        cv2.line(frame, centre, coffee_pos, (255, 255, 0), 2)
     
-    w = cv2.norm(src_points[0] - src_points[1])
-    h = cv2.norm(src_points[1] - src_points[2])
+    # Вывод информации на экран
+    y_offset = 30
+    if robotA_pos:
+        cv2.putText(frame, f"robotA: {robotA_pos}", (10, y_offset),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        y_offset += 25
     
-    size = (int(w * 10), int(h * 10))
-    dst_points = np.array([
-        [0, 0],
-        [w * 10, 0],
-        [w * 10, h * 10],
-        [0, h * 10]
-    ], dtype=np.float32)
+    if robotB_pos:
+        cv2.putText(frame, f"robotB: {robotB_pos}", (10, y_offset),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+        y_offset += 25
     
-    M = cv2.getPerspectiveTransform(src_points, dst_points)
-    warped = cv2.warpPerspective(img, M, size)
+    if coffee_pos:
+        cv2.putText(frame, f"coffee: {coffee_pos}", (10, y_offset),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+        y_offset += 25
     
-    decode_qr_code(warped, src_points)
-    cv2.imshow("QR", warped)
-
-
-def find_color(image, color_enum):
-    """Поиск маркеров определённого цвета в изображении"""
-    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    if angle > 0:
+        cv2.putText(frame, f"Angle: {angle:.2f}°", (10, y_offset),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+        y_offset += 25
     
-    if color_enum == COLOR_RED:
-        # Красный цвет имеет два диапазона в HSV
-        lower_red1 = np.array([0, 83, 95])
-        upper_red1 = np.array([5, 133, 150])
-        lower_red2 = np.array([165, 83, 95])
-        upper_red2 = np.array([180, 133, 150])
-        
-        mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
-        mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
-        mask = cv2.bitwise_or(mask1, mask2)
-    
-    elif color_enum == COLOR_GREEN:
-        lower_green = np.array([47, 34, 45])
-        upper_green = np.array([67, 134, 155])
-        mask = cv2.inRange(hsv, lower_green, upper_green)
-    
-    else:
-        return []
-    
-    # Морфологические операции
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-    mask = cv2.dilate(mask, kernel, iterations=5)
-    mask = cv2.erode(mask, kernel, iterations=2)
-    
-    # Поиск контуров
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    
-    output = []
-    for contour in contours:
-        if len(contour) < 3:
-            continue
-        
-        rect = cv2.minAreaRect(contour)
-        points = cv2.boxPoints(rect)
-        points = np.float32(points)
-        output.append(points)
-    
-    return output
+    if distance > 0:
+        cv2.putText(frame, f"Distance: {distance:.2f}", (10, y_offset),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
 
 
 def create_json_command(command, time_ms):
@@ -193,39 +209,25 @@ def create_json_command(command, time_ms):
         json.dump(data, f)
 
 
-def calculate_direction_command():
+def calculate_and_send_direction_command():
     """Расчёт и отправка команды поворота"""
     time_ms = int(angle / omega * 200)
     if direction:
         create_json_command("right", time_ms)
+        print(f"Отправка команды поворота: вправо на {time_ms} мс")
     else:
         create_json_command("left", time_ms)
+        print(f"Отправка команды поворота: влево на {time_ms} мс")
+    
+    send_command_to_server()
 
 
-def calculate_distance_command():
+def calculate_and_send_distance_command():
     """Расчёт и отправка команды движения вперёд"""
     time_ms = int(distance / velocity * 200)
     create_json_command("forward", time_ms)
-
-
-def read_json_response():
-    """Чтение ответа от робота из JSON файла"""
-    with lock:
-        try:
-            with open("answer.json", "r") as f:
-                data = json.load(f)
-                answer = data.get("answer", "")
-                
-                if answer == "received":
-                    return "received"
-                elif answer == "not received":
-                    return "not received"
-                elif answer == "done":
-                    return "done"
-        except (FileNotFoundError, json.JSONDecodeError):
-            pass
-    
-    return ""
+    print(f"Отправка команды движения: вперёд на {time_ms} мс")
+    send_command_to_server()
 
 
 def send_command_to_server():
@@ -237,76 +239,78 @@ def send_command_to_server():
         response = requests.post(SERVER_URL, json=data, timeout=5)
         
         if response.status_code == 200:
-            print(f"Command sent successfully: {data}")
+            print(f"Команда отправлена успешно: {data}")
         else:
-            print(f"Error: {response.status_code} - {response.text}")
+            print(f"Ошибка: {response.status_code} - {response.text}")
     
     except Exception as e:
-        print(f"Connection error: {e}")
+        print(f"Ошибка подключения: {e}")
 
 
 def main():
     """Основной цикл захвата видео и обработки QR кодов"""
-    global pered, zad, user, station
+    global robotA_pos, robotB_pos, coffee_pos
     
-    cap = cv2.VideoCapture(0)
+    # Попытка открыть камеру
+    cap = cv2.VideoCapture(0)  # Попробуйте 0, 1, 2 если не работает
     
     if not cap.isOpened():
-        print("Error: Cannot open camera")
+        print("Ошибка: Не удалось открыть камеру")
+        print("Попробуйте указать другой номер камеры (0, 1, 2)")
         return -1
+    
+    print("Камера открыта. Начинаем поиск QR кодов...")
+    print("Нажмите 'q' или ESC для выхода")
     
     cv2.namedWindow("QR Scanner", cv2.WINDOW_AUTOSIZE)
     
-    iterations = 0
-    fake_iterations = 0
-    stickers = []
+    frame_count = 0
+    command_send_interval = 0
     
     while True:
         ret, frame = cap.read()
         if not ret:
+            print("Ошибка чтения кадра")
             break
         
-        fake_frame = frame.copy()
-        iterations += 1
-        result = read_json_response()
+        # Обнаружение QR кодов в каждом кадре
+        detect_qr_codes(frame)
         
-        # Поиск маркеров каждые 30 кадров
-        if iterations == 30:
-            green_stickers = find_color(frame, COLOR_GREEN)
-            red_stickers = find_color(frame, COLOR_RED)
-            stickers = green_stickers + red_stickers
-            
-            for sticker in stickers:
-                correct_perspective(frame, sticker)
-            
-            iterations = 0
+        # Рисование информации на кадре
+        draw_info_on_frame(frame)
         
-        # Рисование контуров найденных маркеров
-        for sticker in stickers:
-            for i in range(4):
-                pt1 = tuple(map(int, sticker[i]))
-                pt2 = tuple(map(int, sticker[(i + 1) % 4]))
-                cv2.line(fake_frame, pt1, pt2, (255, 0, 0), 1)
+        # Вывод статуса на экран
+        status_text = "Поиск QR кодов..."
+        if robotA_pos and robotB_pos and coffee_pos:
+            status_text = "Все маркеры найдены!"
         
-        draw_lines(fake_frame)
-        cv2.imshow("QR Scanner", fake_frame)
+        cv2.putText(frame, status_text, (10, frame.shape[0] - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
         
-        if cv2.waitKey(1) >= 0:
+        cv2.imshow("QR Scanner", frame)
+        
+        # Обработка клавиатуры
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q') or key == 27:  # 'q' или ESC
             break
         
-        fake_iterations += 1
+        frame_count += 1
+        command_send_interval += 1
         
-        # Отправка команд робота
-        if result in ["not received", "done", ""]:
-            if fake_iterations > 300:
-                if angle > min_angle:
-                    calculate_direction_command()
-                    send_command_to_server()
-                elif distance > min_dist:
-                    calculate_distance_command()
-                    send_command_to_server()
-                
-                fake_iterations = 0
+        # Отправка команд каждые 300 кадров при наличии всех маркеров
+        if command_send_interval > 300:
+            if robotA_pos and robotB_pos and coffee_pos:
+                if calculate_robot_parameters():
+                    if angle > min_angle:
+                        print(f"Поворот необходим. Угол: {angle:.2f}°")
+                        calculate_and_send_direction_command()
+                    elif distance > min_dist:
+                        print(f"Движение необходимо. Расстояние: {distance:.2f}")
+                        calculate_and_send_distance_command()
+                    else:
+                        print("Цель достигнута!")
+            
+            command_send_interval = 0
     
     cap.release()
     cv2.destroyAllWindows()
