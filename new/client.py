@@ -29,7 +29,7 @@ min_dist = 10
 lock = threading.Lock()
 
 # URL сервера команд
-SERVER_URL = "http://192.168.1.102:8081/command"
+SERVER_URL = "http://192.168.1.101:8081/command"
 
 # Словарь обнаруженных QR кодов
 detected_qr_codes = {}
@@ -58,19 +58,19 @@ def detect_qr_codes(frame):
                 center_y = int(center[1])
                 
                 # Сохранение координат в зависимости от содержимого QR кода
-                if data == "robotA":
+                if data == " robotA ":
                     robotA_pos = (center_x, center_y)
-                    detected_qr_codes["robotA"] = (center_x, center_y)
+                    detected_qr_codes[" robotA "] = (center_x, center_y)
                     print(f"  robotA (переди) at {robotA_pos}")
                 
-                elif data == "robotB":
+                elif data == " robotB ":
                     robotB_pos = (center_x, center_y)
-                    detected_qr_codes["robotB"] = (center_x, center_y)
+                    detected_qr_codes[" robotB "] = (center_x, center_y)
                     print(f"  robotB (зад) at {robotB_pos}")
                 
-                elif data == "coffee":
+                elif data == " coffee ":
                     coffee_pos = (center_x, center_y)
-                    detected_qr_codes["coffee"] = (center_x, center_y)
+                    detected_qr_codes[" coffee "] = (center_x, center_y)
                     print(f"  coffee (цель) at {coffee_pos}")
                 
                 # Рисование контура QR кода на экране
@@ -82,11 +82,11 @@ def draw_qr_contour(frame, points, label):
     points = np.int32(points)
     
     # Цвет в зависимости от типа QR кода
-    if label == "robotA":
+    if label == " robotA ":
         color = (0, 255, 0)  # Зелёный
-    elif label == "robotB":
+    elif label == " robotB ":
         color = (255, 0, 0)  # Красный
-    elif label == "coffee":
+    elif label == " coffee ":
         color = (0, 0, 255)  # Синий
     else:
         color = (255, 255, 255)  # Белый
@@ -141,8 +141,9 @@ def calculate_robot_parameters():
     angle = np.arccos(cos_angle) * 180 / np.pi
     
     # Определение направления поворота (влево или вправо)
+    # В OpenCV ось Y направлена вниз, поэтому знак cross product инвертирован
     perpendicular = robot_direction[0] * to_target[1] - robot_direction[1] * to_target[0]
-    direction = 1 if perpendicular > 0 else 0
+    direction = 0 if perpendicular > 0 else 1
     
     # Вычисление расстояния до цели
     distance = target_length
@@ -297,16 +298,26 @@ def main():
         frame_count += 1
         command_send_interval += 1
         
-        # Отправка команд каждые 300 кадров при наличии всех маркеров
-        if command_send_interval > 300:
+        # Отправка команд каждые 30 кадров при наличии всех маркеров
+        if command_send_interval > 30:
             if robotA_pos and robotB_pos and coffee_pos:
                 if calculate_robot_parameters():
                     if angle > min_angle:
                         print(f"Поворот необходим. Угол: {angle:.2f}°")
                         calculate_and_send_direction_command()
+                        # Ждём выполнения команды перед следующей
+                        time_ms = int(angle / omega * 200)
+                        time.sleep(time_ms / 1000.0 + 0.2)
+                        # Сбрасываем позиции для повторного обнаружения
+                        robotA_pos = None
+                        robotB_pos = None
                     elif distance > min_dist:
                         print(f"Движение необходимо. Расстояние: {distance:.2f}")
                         calculate_and_send_distance_command()
+                        time_ms = int(distance / velocity * 200)
+                        time.sleep(time_ms / 1000.0 + 0.2)
+                        robotA_pos = None
+                        robotB_pos = None
                     else:
                         print("Цель достигнута!")
             
